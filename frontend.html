@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environmental Monitoring Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .sensor-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .sensor-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        canvas {
+            max-width: 100%;
+            height: 200px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Environmental Monitoring Dashboard</h1>
+    <div class="dashboard">
+        <div class="sensor-card">
+            <h2>Temperature</h2>
+            <div id="tempValue" class="sensor-value">--</div>
+            <canvas id="temperatureChart"></canvas>
+        </div>
+        <div class="sensor-card">
+            <h2>Humidity</h2>
+            <div id="humidityValue" class="sensor-value">--</div>
+            <canvas id="humidityChart"></canvas>
+        </div>
+        <div class="sensor-card">
+            <h2>CO2 Equivalent</h2>
+            <div id="co2Value" class="sensor-value">--</div>
+            <canvas id="co2Chart"></canvas>
+        </div>
+        <div class="sensor-card">
+            <h2>TVOC</h2>
+            <div id="tvocValue" class="sensor-value">--</div>
+            <canvas id="tvocChart"></canvas>
+        </div>
+        <div class="sensor-card">
+            <h2>Noise Level</h2>
+            <div id="noiseValue" class="sensor-value">--</div>
+            <canvas id="noiseChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const socket = io('http://localhost:5000');
+        const charts = {};
+
+        function createChart(elementId, min, max, unit) {
+            const ctx = document.getElementById(elementId + 'Chart').getContext('2d');
+            return new Chart(ctx, {
+                type: 'gauge',
+                data: {
+                    datasets: [{
+                        data: [0],
+                        backgroundColor: ['green', 'yellow', 'red']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        r: {
+                            min: min,
+                            max: max,
+                            ticks: { 
+                                stepSize: (max - min) / 5,
+                                callback: (val) => val + unit 
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize charts
+        charts.temperature = createChart('temperature', 0, 50, '°C');
+        charts.humidity = createChart('humidity', 0, 100, '%');
+        charts.co2 = createChart('co2', 400, 2000, 'ppm');
+        charts.tvoc = createChart('tvoc', 0, 500, 'ppb');
+        charts.noise = createChart('noise', 30, 100, 'dB');
+
+        socket.on('sensor_update', (data) => {
+            // Update values
+            document.getElementById('tempValue').textContent = data.temperature + '°C';
+            document.getElementById('humidityValue').textContent = data.humidity + '%';
+            document.getElementById('co2Value').textContent = data.co2_equivalent + 'ppm';
+            document.getElementById('tvocValue').textContent = data.tvoc + 'ppb';
+            document.getElementById('noiseValue').textContent = data.decibel_level + 'dB';
+
+            // Update charts
+            charts.temperature.data.datasets[0].data = [data.temperature];
+            charts.humidity.data.datasets[0].data = [data.humidity];
+            charts.co2.data.datasets[0].data = [data.co2_equivalent];
+            charts.tvoc.data.datasets[0].data = [data.tvoc];
+            charts.noise.data.datasets[0].data = [data.decibel_level];
+
+            // Update all charts
+            Object.values(charts).forEach(chart => chart.update());
+        });
+    </script>
+</body>
+</html>
